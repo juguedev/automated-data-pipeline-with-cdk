@@ -4,13 +4,18 @@ import * as s3 from "aws-cdk-lib/aws-s3";
 import {DataPipelineConstruct} from "./sourceTest/data-pipeline-construct"
 import * as s3deploy from "aws-cdk-lib/aws-s3-deployment";
 
+
+export interface ApplicationStackProps {
+  applicationName: string
+}
+
 export class ApplicationStack extends Stack {
-  constructor(scope: Construct, id: string, props?: StackProps) {
-    super(scope, id, props);
+  constructor(scope: Construct, id: string, props: ApplicationStackProps) {
+    super(scope, id);
 
     // Bucket donde se almacenará el código fuente de los  
     const assetsBucket = new s3.Bucket(this, "assets-bucket-id", {
-      bucketName: "assets-bucket-for-test-jg",
+      bucketName: props.applicationName + "-assets-bucket",
       removalPolicy: RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
     });  
