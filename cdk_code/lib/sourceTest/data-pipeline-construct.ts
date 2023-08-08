@@ -28,14 +28,22 @@ export class DataPipelineConstruct extends Construct {
     });
   
       executeGlueJobsRole.addManagedPolicy(
-          iam.ManagedPolicy.fromAwsManagedPolicyName(
-              'service-role/AWSGlueServiceRole', 
-            )
-      );
+        iam.ManagedPolicy.fromAwsManagedPolicyName(
+          'service-role/AWSGlueServiceRole', 
+      ));
+      executeGlueJobsRole.addManagedPolicy(
+        iam.ManagedPolicy.fromAwsManagedPolicyName(
+          'CloudWatchFullAccess', 
+      ));
+      executeGlueJobsRole.addManagedPolicy(
+        iam.ManagedPolicy.fromAwsManagedPolicyName(
+          'AmazonS3FullAccess', 
+      ));
 
       const topic = new sns.Topic(this, 'sns-topic', {
         displayName: 'Topico de notificacion del data pipeline.',
       });
+
       // Añadimos los subscriptores
       // topic.addSubscription(new subs.EmailSubscription("jurgen.guerra@unmsm.edu.pe"));
           
