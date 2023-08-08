@@ -5,6 +5,7 @@ import * as glue from "aws-cdk-lib/aws-glue";
 
 export interface IngestStageProps {
     assetsBucket: s3.Bucket,
+    validationGlueJobName: string
   }
   
   export class IngestStageConstruct extends Construct {
@@ -31,6 +32,9 @@ export interface IngestStageProps {
           pythonVersion: '3',
           scriptLocation: "s3://" + props.assetsBucket.bucketName + "/assets/sourceTest/validation-job.py",
         },
+        defaultArguments: {
+          "--BUCKET": "s3://obds3131226-dev/",
+        },
         role: executeGlueJobsRole.roleArn,
         description: 'Este job se encarga de validar que el archivo ingresado cumple con las reglas.',
         executionProperty: {
@@ -38,7 +42,7 @@ export interface IngestStageProps {
         },
         maxCapacity: 2,
         maxRetries: 0,
-        name: 'validation-data-job',
+        name: props.validationGlueJobName,
         timeout: 5,
         glueVersion: "3.0",
       });
