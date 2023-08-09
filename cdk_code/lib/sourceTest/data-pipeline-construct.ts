@@ -74,7 +74,9 @@ export class DataPipelineConstruct extends Construct {
       dataBucket: props.dataBucket,  
       loadGlueJobName: loadGlueJobName,
       notificationGlueJobName: notificationGlueJobName,
-      executionGlueJobsRole: executeGlueJobsRole
+      executionGlueJobsRole: executeGlueJobsRole,
+      snsNotificationTopic: topic,
+
   });
 
 

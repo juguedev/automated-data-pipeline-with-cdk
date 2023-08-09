@@ -1,4 +1,3 @@
-import logging
 import sys
 import pandas as pd
 import awswrangler as wr
@@ -12,10 +11,10 @@ def insert_data(data, path):
             "path": path,
             "compression": 'snappy'
         }
-        wr.s3.to_parquet(**write_params)
+        wr.s3.to_parquet(write_params)
         print(f'Data escrita en {path}')
     except Exception as e:
-        raise Exception(f"Insertando datos en {path} error: {str(e)}")
+        raise Exception(f"Error al insertar datos en {path}, error: {str(e)}")
 
 
 args = getResolvedOptions(sys.argv, ['KEY', 'BUCKET'])

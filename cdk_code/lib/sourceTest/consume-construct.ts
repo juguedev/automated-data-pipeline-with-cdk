@@ -2,13 +2,16 @@ import { Construct } from 'constructs';
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as glue from "aws-cdk-lib/aws-glue";
+import * as sns from 'aws-cdk-lib/aws-sns';
 
 export interface ConsumeStageProps {
     assetsBucket: s3.Bucket,
     dataBucket: s3.Bucket,
     loadGlueJobName: string,
     notificationGlueJobName: string,
-    executionGlueJobsRole: iam.Role
+    executionGlueJobsRole: iam.Role,
+    snsNotificationTopic: sns.Topic,
+
   }
   
   export class ConsumeStageConstruct extends Construct {
@@ -48,6 +51,7 @@ export interface ConsumeStageProps {
         },
         defaultArguments: {
           "--BUCKET": "s3://" + props.dataBucket.bucketName + "/",
+          "--SNS_ARN": props.snsNotificationTopic.topicArn,
         },
         role: props.executionGlueJobsRole.roleArn,
         description: 'Este job se encarga de ejecutar las Consumeaciones de agregación de datos.',
