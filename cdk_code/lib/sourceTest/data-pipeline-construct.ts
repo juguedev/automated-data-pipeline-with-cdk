@@ -2,6 +2,7 @@ import { Construct } from 'constructs';
 import * as s3 from "aws-cdk-lib/aws-s3";
 import { IngestStageConstruct } from "./ingest-construct";
 import { TransformStageConstruct } from "./transform-construct";
+import { ConsumeStageConstruct } from "./consume-construct";
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as subs from 'aws-cdk-lib/aws-sns-subscriptions';
 import * as sfn from "aws-cdk-lib/aws-stepfunctions";
@@ -22,6 +23,8 @@ export class DataPipelineConstruct extends Construct {
     const validationGlueJobName = 'validation-data-job';
     const businessLogicGlueJobName = 'business-logic-data-job';
     const aggregationGlueJobName = 'aggregation-data-job';
+    const loadGlueJobName = 'load-data-job';
+    const notificationGlueJobName = 'notification-data-job';
 
     // Creamos un rol para asignarlo a los jobs
     const executeGlueJobsRole = new iam.Role(this, "glue-job-role-id", {
@@ -60,10 +63,20 @@ export class DataPipelineConstruct extends Construct {
 
     const transformStageConstruct = new TransformStageConstruct(this, 'transformStageConstruct', {
         assetsBucket: props.assetsBucket, 
+        dataBucket: props.dataBucket,  
         businessLogicGlueJobName: businessLogicGlueJobName,
         aggregationGlueJobName: aggregationGlueJobName,
         executionGlueJobsRole: executeGlueJobsRole
     });
+
+    const consumeStageConstruct = new ConsumeStageConstruct(this, 'consumeStageConstruct', {
+      assetsBucket: props.assetsBucket, 
+      dataBucket: props.dataBucket,  
+      loadGlueJobName: loadGlueJobName,
+      notificationGlueJobName: notificationGlueJobName,
+      executionGlueJobsRole: executeGlueJobsRole
+  });
+
 
 
 
@@ -103,6 +116,28 @@ export class DataPipelineConstruct extends Construct {
       integrationPattern: sfn.IntegrationPattern.RUN_JOB, //runJob.sync    
     })
 
+    const load_job_task = new tasks.GlueStartJobRun(this, "sf-load-data-job", {
+      glueJobName: loadGlueJobName,
+      arguments: sfn.TaskInput.fromObject({
+          "--KEY.$": "$.Arguments.--KEY",
+      }),
+      outputPath: "$",
+      inputPath: "$",
+      resultPath: "$",
+      integrationPattern: sfn.IntegrationPattern.RUN_JOB, //runJob.sync    
+    })
+
+    const notification_job_task = new tasks.GlueStartJobRun(this, "sf-notification-data-job", {
+      glueJobName: notificationGlueJobName,
+      arguments: sfn.TaskInput.fromObject({
+          "--KEY.$": "$.Arguments.--KEY",
+      }),
+      outputPath: "$",
+      inputPath: "$",
+      resultPath: "$",
+      integrationPattern: sfn.IntegrationPattern.RUN_JOB, //runJob.sync    
+    })
+
     const jobFailedTask = new tasks.SnsPublish(this, 'publish-notification', {
       topic: topic,
       message: sfn.TaskInput.fromJsonPathAt('$.error'),
@@ -119,6 +154,12 @@ export class DataPipelineConstruct extends Construct {
       resultPath: '$.error',
     }))
     .next(aggregation_job_task.addCatch(jobFailedTask, {   
+      resultPath: '$.error',
+    }))
+    .next(load_job_task.addCatch(jobFailedTask, {   
+      resultPath: '$.error',
+    }))
+    .next(notification_job_task.addCatch(jobFailedTask, {   
       resultPath: '$.error',
     }))
 
