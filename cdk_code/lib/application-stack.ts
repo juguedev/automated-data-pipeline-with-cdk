@@ -13,12 +13,21 @@ export class ApplicationStack extends Stack {
   constructor(scope: Construct, id: string, props: ApplicationStackProps) {
     super(scope, id);
 
-    // Bucket donde se almacenará el código fuente de los  
+    // Bucket donde se almacenará el código fuente de las funciones en glue
     const assetsBucket = new s3.Bucket(this, "assets-bucket-id", {
       bucketName: props.applicationName + "-assets-bucket",
       removalPolicy: RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
     });  
+
+    // Bucket donde se almacenarán los datos de la aplicación  
+    const dataBucket = new s3.Bucket(this, "data-bucket-id", {
+      bucketName: props.applicationName + "-data-bucket",
+      removalPolicy: RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+      eventBridgeEnabled: true
+    });  
+    
 
     // Se copian los scripts y demas assets a este bucket
     new s3deploy.BucketDeployment(this, 'DeployWebsite', {
@@ -29,6 +38,7 @@ export class ApplicationStack extends Stack {
 
     const dataPipelineConstruct = new DataPipelineConstruct(this, 'dataPipelineConstruct', {
       assetsBucket: assetsBucket, 
+      dataBucket: dataBucket, 
     });
     
     }

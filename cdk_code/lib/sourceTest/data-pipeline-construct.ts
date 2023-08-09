@@ -8,9 +8,12 @@ import * as sfn from "aws-cdk-lib/aws-stepfunctions";
 import * as tasks from "aws-cdk-lib/aws-stepfunctions-tasks";
 import { Duration } from 'aws-cdk-lib';
 import * as iam from "aws-cdk-lib/aws-iam";
+import * as events from "aws-cdk-lib/aws-events";
+import * as targets from "aws-cdk-lib/aws-events-targets";
 
 export interface DataPipelineConstructProps {
     assetsBucket: s3.Bucket,
+    dataBucket: s3.Bucket,
   }
 export class DataPipelineConstruct extends Construct {
   constructor(scope: Construct, id: string, props: DataPipelineConstructProps) {
@@ -50,6 +53,7 @@ export class DataPipelineConstruct extends Construct {
 
     const ingestStageConstruct = new IngestStageConstruct(this, 'ingestStageConstruct', {
         assetsBucket: props.assetsBucket, 
+        dataBucket: props.dataBucket,  
         validationGlueJobName: validationGlueJobName,
         executionGlueJobsRole: executeGlueJobsRole
     });
@@ -80,7 +84,7 @@ export class DataPipelineConstruct extends Construct {
     const business_logic_job_task = new tasks.GlueStartJobRun(this, "sf-business-logic-data-job", {
       glueJobName: businessLogicGlueJobName,
       arguments: sfn.TaskInput.fromObject({
-          "--KEY.$": '$.detail.object.key',
+          "--KEY.$": "$.Arguments.--KEY",
       }),
       outputPath: "$",
       inputPath: "$",
@@ -91,7 +95,7 @@ export class DataPipelineConstruct extends Construct {
     const aggregation_job_task = new tasks.GlueStartJobRun(this, "sf-aggregation-data-job", {
       glueJobName: aggregationGlueJobName,
       arguments: sfn.TaskInput.fromObject({
-          "--KEY.$": '$.detail.object.key',
+          "--KEY.$": "$.Arguments.--KEY",
       }),
       outputPath: "$",
       inputPath: "$",
@@ -120,10 +124,49 @@ export class DataPipelineConstruct extends Construct {
 
     const SFMachine = new sfn.StateMachine(this, "state-machine-id", {
         stateMachineName: "data-pipeline",
-        definition: stepFunctionDefinition,
+        definitionBody: sfn.DefinitionBody.fromChainable(stepFunctionDefinition),
         timeout: Duration.minutes(10),
     });
 
 
+    // Regla de eventbridge para ejecutar el SM
+    const eventRule = new events.Rule(this, "s3-object-created", {
+      ruleName: "s3-object-created",
+      eventPattern: {
+          source: ["aws.s3"],
+          detailType: ["Object Created"],
+          detail: {
+              bucket: {
+                  name: [props.dataBucket.bucketName]
+              },
+              object: {
+                  key: [{
+                      prefix: "charged"
+                  }]
+              }
+          }
       }
+  });
+
+  // Creamos un rol para ejecutar el step function 
+  const invokeStepFunctionRole = new iam.Role(this, "invoke-step-function-role-id", {
+      assumedBy: new iam.ServicePrincipal("events.amazonaws.com"),
+      roleName: "Invoke-Step-Function-Role",
+      description: "Rol de IAM para invocar el Step Function.",
+  });
+
+  // Añademos un Policy al rol de IAM
+  invokeStepFunctionRole.addToPolicy(
+      new iam.PolicyStatement({
+          resources: [SFMachine.stateMachineArn],
+          actions: ["states:StartExecution"],
+      })
+  );
+
+  // Añadimos un target a la regla del evento
+  eventRule.addTarget(new targets.SfnStateMachine(SFMachine, {
+      role: invokeStepFunctionRole
+    }));
+  
+  }
 }
