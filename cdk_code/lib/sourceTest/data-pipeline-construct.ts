@@ -3,11 +3,13 @@ import * as s3 from "aws-cdk-lib/aws-s3";
 import { IngestStageConstruct } from "./ingest-construct";
 import { TransformStageConstruct } from "./transform-construct";
 import { ConsumeStageConstruct } from "./consume-construct";
+import { glueTableColumns } from "../../../assets/sourceTest/table-schema";
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as subs from 'aws-cdk-lib/aws-sns-subscriptions';
 import * as sfn from "aws-cdk-lib/aws-stepfunctions";
 import * as tasks from "aws-cdk-lib/aws-stepfunctions-tasks";
-import { Duration } from 'aws-cdk-lib';
+import * as glue from "aws-cdk-lib/aws-glue";
+import { Duration, Stack } from 'aws-cdk-lib';
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as events from "aws-cdk-lib/aws-events";
 import * as targets from "aws-cdk-lib/aws-events-targets";
@@ -25,6 +27,7 @@ export class DataPipelineConstruct extends Construct {
     const aggregationGlueJobName = 'aggregation-data-job';
     const loadGlueJobName = 'load-data-job';
     const notificationGlueJobName = 'notification-data-job';
+    const glueDatabaseName = 'glue-database-name';
 
     // Creamos un rol para asignarlo a los jobs
     const executeGlueJobsRole = new iam.Role(this, "glue-job-role-id", {
@@ -52,7 +55,27 @@ export class DataPipelineConstruct extends Construct {
 
       // Añadimos los subscriptores
       // topic.addSubscription(new subs.EmailSubscription("jurgen.guerra@unmsm.edu.pe"));
-          
+      const glueDatabase = new glue.CfnDatabase(this, 'CfnDatabase', {
+        catalogId: Stack.of(this).account,
+        databaseInput: {
+          description: 'Database Vehicular',
+          name: glueDatabaseName,
+        },
+      });
+      const glueTable = new glue.CfnTable(this, 'CfnTable', {  
+        catalogId: glueDatabase.catalogId,
+        databaseName: glueDatabaseName,
+        tableInput: {
+          description: 'Tabla de datos del estado del vehículo.',
+          name: glueDatabaseName,
+          storageDescriptor: {
+            columns: glueTableColumns,
+            location: "s3://" + props.dataBucket.bucketName + "/loaded/",
+          },
+        },
+      });
+    
+    glueTable.node.addDependency(glueDatabase);
 
     const ingestStageConstruct = new IngestStageConstruct(this, 'ingestStageConstruct', {
         assetsBucket: props.assetsBucket, 
