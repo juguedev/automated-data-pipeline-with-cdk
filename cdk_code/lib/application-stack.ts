@@ -19,7 +19,7 @@ export class ApplicationStack extends Stack {
 
     // Bucket donde se almacenará el código fuente de las funciones en glue
     const assetsBucket = new s3.Bucket(this, "assets-bucket-id", {
-      bucketName: prefix + "-assets-bucket",
+      bucketName: prefix + "-assets-bucket-dev-jguerra",
       removalPolicy: RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
     });  
